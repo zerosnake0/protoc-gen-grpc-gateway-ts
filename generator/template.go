@@ -24,8 +24,14 @@ const tmpl = `
 
 {{define "enums"}}
 {{range .}}export enum {{.Name}} {
+{{- if .EnumAsInts }}
 {{- range .Values}}
-  {{.}} = "{{.}}",
+  {{.Name}} = "{{.Name}}",
+{{- end }}
+{{- else}}
+{{- range .Values}}
+  {{.Name}} = {{.Number}},
+{{- end}}
 {{- end}}
 }
 

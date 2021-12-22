@@ -21,9 +21,13 @@ func (r *Registry) analyseEnumType(fileData *data.File, packageName, fileName st
 
 	enumData := data.NewEnum()
 	enumData.Name = packageIdentifier
+	enumData.EnumAsInts = r.EnumAsInts
 
 	for _, e := range enum.GetValue() {
-		enumData.Values = append(enumData.Values, e.GetName())
+		enumData.Values = append(enumData.Values, data.EnumValue{
+			Name:   e.GetName(),
+			Number: e.GetNumber(),
+		})
 	}
 
 	fileData.Enums = append(fileData.Enums, enumData)

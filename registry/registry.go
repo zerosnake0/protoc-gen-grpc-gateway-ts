@@ -8,9 +8,10 @@ import (
 
 	descriptorpb "github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
-	"github.com/grpc-ecosystem/protoc-gen-grpc-gateway-ts/data"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus" // nolint: depguard
+
+	"github.com/grpc-ecosystem/protoc-gen-grpc-gateway-ts/data"
 )
 
 const (
@@ -26,6 +27,8 @@ const (
 	FetchModuleFileName = "fetch_module_filename"
 	// UseProtoNames will make the generator to generate field name the same as defined in the proto
 	UseProtoNames = "use_proto_names"
+	// EnumAsInts will make the generator to generate int value instead of string value for enumeration
+	EnumAsInts = "enum_as_ints"
 )
 
 // Registry analyse generation request, spits out the data the the rendering process
@@ -57,6 +60,9 @@ type Registry struct {
 
 	// TSPackages stores the package name keyed by the TS file name
 	TSPackages map[string]string
+
+	// EnumAsInts will make the generator to generate int value instead of string value for enumeration
+	EnumAsInts bool
 }
 
 // NewRegistry initialise the registry and return the instance
@@ -83,6 +89,13 @@ func NewRegistry(paramsMap map[string]string) (*Registry, error) {
 		useProtoNames = useProtoNamesVal == "true"
 	}
 
+	enumAsInts := false
+
+	enumAsIntsVal, ok := paramsMap[EnumAsInts]
+	if ok {
+		enumAsInts = enumAsIntsVal == "true"
+	}
+
 	r := &Registry{
 		Types:                make(map[string]*TypeInformation),
 		TSImportRoots:        tsImportRoots,
@@ -91,6 +104,7 @@ func NewRegistry(paramsMap map[string]string) (*Registry, error) {
 		FetchModuleFilename:  fetchModuleFilename,
 		UseProtoNames:        useProtoNames,
 		TSPackages:           make(map[string]string),
+		EnumAsInts:           enumAsInts,
 	}
 
 	return r, nil
