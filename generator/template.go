@@ -52,14 +52,19 @@ export type {{.Name}} = {
 {{end}}{{end}}
 
 {{define "services"}}{{range .}}export class {{.Name}} {
+  initReq: fm.InitReq
+
+  constructor(initReq: fm.InitReq) {
+	this.initReq = initReq
+  }
 {{- range .Methods}}  
 {{- if .ServerStreaming }}
-  static {{.Name}}(req: {{tsType .Input}}, entityNotifier?: fm.NotifyStreamEntityArrival<{{tsType .Output}}>, initReq?: fm.InitReq): Promise<void> {
-    return fm.fetchStreamingRequest<{{tsType .Input}}, {{tsType .Output}}>(` + "`{{renderURL .}}`" + `, entityNotifier, {...initReq, {{buildInitReq .}}})
+  {{.Name}}(req: {{tsType .Input}}, entityNotifier?: fm.NotifyStreamEntityArrival<{{tsType .Output}}>): Promise<void> {
+    return fm.fetchStreamingRequest<{{tsType .Input}}, {{tsType .Output}}>(` + "`{{renderURL .}}`" + `, entityNotifier, {...this.initReq, {{buildInitReq .}}})
   }
 {{- else }}
-  static {{.Name}}(req: {{tsType .Input}}, initReq?: fm.InitReq): Promise<{{tsType .Output}}> {
-    return fm.fetchReq<{{tsType .Input}}, {{tsType .Output}}>(` + "`{{renderURL .}}`" + `, {...initReq, {{buildInitReq .}}})
+  {{.Name}}(req: {{tsType .Input}}): Promise<{{tsType .Output}}> {
+    return fm.fetchReq<{{tsType .Input}}, {{tsType .Output}}>(` + "`{{renderURL .}}`" + `, {...this.initReq, {{buildInitReq .}}})
   }
 {{- end}}
 {{- end}}
@@ -200,6 +205,7 @@ function b64Test(s: string): boolean {
 }
 
 export interface InitReq extends RequestInit {
+  fetch: (input: RequestInfo, init?: RequestInit)=> Promise<any>
   pathPrefix?: string
 }
 
@@ -212,14 +218,11 @@ export function replacer(key: any, value: any): any {
 }
 
 export function fetchReq<I, O>(path: string, init?: InitReq): Promise<O> {
-  const {pathPrefix, ...req} = init || {}
+  const {fetch, pathPrefix, ...req} = init || {}
 
   const url = pathPrefix ? ` + "`${pathPrefix}${path}`" + ` : path
 
-  return fetch(url, req).then(r => r.json().then((body: O) => {
-    if (!r.ok) { throw body; }
-    return body;
-  })) as Promise<O>
+  return fetch(url, req) as Promise<O>
 }
 
 // NotifyStreamEntityArrival is a callback that will be called on streaming entity arrival
