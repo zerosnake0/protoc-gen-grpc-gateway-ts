@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
+	"unicode"
 
 	log "github.com/sirupsen/logrus"
 
@@ -57,20 +58,20 @@ export type {{.Name}} = {
 {{end}}
 {{end}}{{end}}
 
-{{define "services"}}{{range .}}export class {{.Name}} {
-  initReq: fm.InitReq
+{{define "services"}}{{range .}}export class {{.Name}}<Option> {
+  initReq: fm.InitReq<Option>
 
-  constructor(initReq: fm.InitReq) {
+  constructor(initReq: fm.InitReq<Option>) {
 	this.initReq = initReq
   }
 {{- range .Methods}}  
 {{- if .ServerStreaming }}
-  {{.Name}}(req: {{tsType .Input}}, entityNotifier?: fm.NotifyStreamEntityArrival<{{tsType .Output}}>): Promise<void> {
+  {{lowerFirstChar .Name}}(req: {{tsType .Input}}, entityNotifier?: fm.NotifyStreamEntityArrival<{{tsType .Output}}>): Promise<void> {
     return fm.fetchStreamingRequest<{{tsType .Input}}, {{tsType .Output}}>(` + "`{{renderURL .}}`" + `, entityNotifier, {...this.initReq, {{buildInitReq .}}})
   }
 {{- else }}
-  {{.Name}}(req: {{tsType .Input}}): Promise<{{tsType .Output}}> {
-    return fm.fetchReq<{{tsType .Input}}, {{tsType .Output}}>(` + "`{{renderURL .}}`" + `, {...this.initReq, {{buildInitReq .}}})
+  {{lowerFirstChar .Name}}(req: {{tsType .Input}}, opt?: Option): Promise<{{tsType .Output}}> {
+    return fm.fetchReq<{{tsType .Input}}, {{tsType .Output}}>(` + "`{{renderURL .}}`" + `, { {{buildInitReq .}} }, this.initReq, opt)
   }
 {{- end}}
 {{- end}}
@@ -210,8 +211,8 @@ function b64Test(s: string): boolean {
 	return /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(s);
 }
 
-export interface InitReq extends RequestInit {
-  fetch: (input: RequestInfo, init?: RequestInit)=> Promise<any>
+export interface InitReq<Option> extends RequestInit {
+  fetch: (path: string, req?: RequestInit, opt?: Option)=> Promise<any>
   pathPrefix?: string
 }
 
@@ -223,12 +224,12 @@ export function replacer(key: any, value: any): any {
   return value;
 }
 
-export function fetchReq<I, O>(path: string, init?: InitReq): Promise<O> {
-  const {fetch, pathPrefix, ...req} = init || {}
+export function fetchReq<I, O, Option>(path: string, req: RequestInit, init?: InitReq<Option>, opt?: Option): Promise<O> {
+  const {fetch, pathPrefix} = init || {}
 
   const url = pathPrefix ? ` + "`${pathPrefix}${path}`" + ` : path
 
-  return fetch(url, req) as Promise<O>
+  return fetch(url, req, opt) as Promise<O>
 }
 
 // NotifyStreamEntityArrival is a callback that will be called on streaming entity arrival
@@ -457,6 +458,12 @@ func GetTemplate(r *registry.Registry) *template.Template {
 		"renderURL":    renderURL(r),
 		"buildInitReq": buildInitReq,
 		"fieldName":    fieldName(r),
+		"lowerFirstChar": func(s string) string {
+			for i, r := range s {
+				return string(unicode.ToLower(r)) + s[i+1:]
+			}
+			return ""
+		},
 	})
 
 	t = template.Must(t.Parse(tmpl))
