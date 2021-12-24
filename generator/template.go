@@ -71,7 +71,7 @@ export type {{.Name}} = {
   }
 {{- else }}
   {{lowerFirstChar .Name}}(req: {{tsType .Input}}, opt?: Option): Promise<{{tsType .Output}}> {
-    return fm.fetchReq<{{tsType .Input}}, {{tsType .Output}}>(` + "`{{renderURL .}}`" + `, { {{buildInitReq .}} }, this.initReq, opt)
+    return fm.fetchReq<{{tsType .Input}}, {{tsType .Output}}, Option>(` + "`{{renderURL .}}`" + `, { {{buildInitReq .}} }, this.initReq, opt)
   }
 {{- end}}
 {{- end}}
@@ -211,8 +211,17 @@ function b64Test(s: string): boolean {
 	return /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(s);
 }
 
+export interface BaseRequest {
+  method: string;
+  body?: any;
+}
+
+export interface HttpRequest extends BaseRequest {
+  url: string;
+}
+
 export interface InitReq<Option> extends RequestInit {
-  fetch: (path: string, req?: RequestInit, opt?: Option)=> Promise<any>
+  fetch: (req: HttpRequest, opt?: Option)=> Promise<any>
   pathPrefix?: string
 }
 
@@ -224,12 +233,12 @@ export function replacer(key: any, value: any): any {
   return value;
 }
 
-export function fetchReq<I, O, Option>(path: string, req: RequestInit, init?: InitReq<Option>, opt?: Option): Promise<O> {
-  const {fetch, pathPrefix} = init || {}
+export function fetchReq<I, O, Option>(path: string, req: BaseRequest, init: InitReq<Option>, opt?: Option): Promise<O> {
+  const {fetch, pathPrefix} = init
 
   const url = pathPrefix ? ` + "`${pathPrefix}${path}`" + ` : path
 
-  return fetch(url, req, opt) as Promise<O>
+  return fetch({...req, url}, opt) as Promise<O>
 }
 
 // NotifyStreamEntityArrival is a callback that will be called on streaming entity arrival
@@ -524,9 +533,11 @@ func buildInitReq(method data.Method) string {
 	m := `method: "` + httpMethod + `"`
 	fields := []string{m}
 	if method.HTTPRequestBody == nil || *method.HTTPRequestBody == "*" {
-		fields = append(fields, "body: JSON.stringify(req, fm.replacer)")
+		fields = append(fields, "body: req")
+		//fields = append(fields, "body: JSON.stringify(req, fm.replacer)")
 	} else if *method.HTTPRequestBody != "" {
-		fields = append(fields, `body: JSON.stringify(req["`+*method.HTTPRequestBody+`"], fm.replacer)`)
+		fields = append(fields, `body: req["`+*method.HTTPRequestBody+`"]`)
+		//fields = append(fields, `body: JSON.stringify(req["`+*method.HTTPRequestBody+`"], fm.replacer)`)
 	}
 
 	return strings.Join(fields, ", ")
