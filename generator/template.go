@@ -67,7 +67,7 @@ export type {{.Name}} = {
 {{- range .Methods}}  
 {{- if .ServerStreaming }}
   {{lowerFirstChar .Name}}(req: {{tsType .Input}}, entityNotifier?: fm.NotifyStreamEntityArrival<{{tsType .Output}}>): Promise<void> {
-    return fm.fetchStreamingRequest<{{tsType .Input}}, {{tsType .Output}}>(` + "`{{renderURL .}}`" + `, entityNotifier, {...this.initReq, {{buildInitReq .}}})
+    return fm.fetchStreamingRequest<{{tsType .Input}}, {{tsType .Output}}, Option>(` + "`{{renderURL .}}`" + `, entityNotifier, {...this.initReq, {{buildInitReq .}}})
   }
 {{- else }}
   {{lowerFirstChar .Name}}(req: {{tsType .Input}}, opt?: Option): Promise<{{tsType .Output}}> {
@@ -125,11 +125,11 @@ for (let i = 0; i < 64;)
     s64[b64[i] = i < 26 ? i + 65 : i < 52 ? i + 71 : i < 62 ? i - 4 : i - 59 | 43] = i++;
 
 export function b64Encode(buffer: Uint8Array, start: number, end: number): string {
-	let parts: string[] = null;
+  let parts: string[] = [];
   const chunk = [];
   let i = 0, // output index
     j = 0, // goto index
-    t;     // temporary
+    t = 0; // temporary
   while (start < end) {
     const b = buffer[start++];
     switch (j) {
@@ -171,10 +171,10 @@ export function b64Encode(buffer: Uint8Array, start: number, end: number): strin
 const invalidEncoding = "invalid encoding";
 
 export function b64Decode(s: string): Uint8Array {
-	const buffer = [];
-	let offset = 0;
+  const buffer = [];
+  let offset = 0;
   let j = 0, // goto index
-      t;     // temporary
+      t = 0; // temporary
   for (let i = 0; i < s.length;) {
     let c = s.charCodeAt(i++);
     if (c === 61 && j > 1)
@@ -249,7 +249,7 @@ export type NotifyStreamEntityArrival<T> = (resp: T) => void
  * it takes NotifyStreamEntityArrival that lets users respond to entity arrival during the call
  * all entities will be returned as an array after the call finishes.
  **/
-export async function fetchStreamingRequest<S, R>(path: string, callback?: NotifyStreamEntityArrival<R>, init?: InitReq) {
+export async function fetchStreamingRequest<S, R, Option>(path: string, callback?: NotifyStreamEntityArrival<R>, init?: InitReq<Option>) {
   const {pathPrefix, ...req} = init || {}
   const url = pathPrefix ?` + "`${pathPrefix}${path}`" + ` : path
   const result = await fetch(url, req)
